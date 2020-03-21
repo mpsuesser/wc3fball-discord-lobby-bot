@@ -1,0 +1,5 @@
+# File containing environment variables to be set, e.g. the bot's API token
+.env
+.vscode/
+src/__pycache__/
+venv/

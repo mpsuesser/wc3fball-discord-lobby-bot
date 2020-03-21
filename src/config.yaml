@@ -1,0 +1,2 @@
+# Number of players in the lobby before determining there are enough people to begin.
+players_to_begin: 8
