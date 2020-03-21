@@ -3,3 +3,4 @@
 .vscode/
 src/__pycache__/
 venv/
+.gcloudignore

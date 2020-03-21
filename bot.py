@@ -1,3 +1,9 @@
+# Discord Lobby Bot
+# Author: Marc Suesser
+# 
+#
+#
+
 import os
 
 # External packages
@@ -38,6 +44,14 @@ async def on_message(message):
     if message.author == client.user:
         return
 
+    # Allow messages from myself for testing purposes
+    if isinstance(message.channel, discord.DMChannel) and message.recipient.name != 'Arold':
+        return
+
+    # Only process channel messages from #general
+    if isinstance(message.channel, discord.TextChannel) and message.channel.name != 'general':
+        return
+
     handler_funcs = {
         '!test': handle_test_request,
 
@@ -66,8 +80,9 @@ async def on_message(message):
 
 # !help
 async def handle_help_request(message):
+    players_to_begin = config['players_to_begin']
     response = '\n\n'.join([
-        'I am a Discord bot whose purpose is to maintain a Discord lobby for people who want to play WC3 Football but also want to continue going about their business until there are enough people to play a full game.',
+        f'I am a Discord bot whose purpose is to maintain a Discord lobby for people who want to play WC3 Football but also want to continue going about their business until there are enough people to play a full game. It\'s simple: if you want to play football, create or join a lobby, and once there are {players_to_begin} players ready to go I will ping those 8 players to let them know it\'s time.',
 
         'Available commands are:',
 
@@ -87,9 +102,7 @@ async def handle_help_request(message):
     await user.create_dm()
     await user.dm_channel.send(response)
 
-    # React to their message with a thumbs up
-    emoji = '\N{THUMBS UP SIGN}'
-    await message.add_reaction(emoji)
+    await thumbs_up_msg(message)
 
 
 # !test
@@ -125,7 +138,7 @@ async def handle_join_lobby_request(message):
 
     # Check for if no lobby is currently open
     if lobby is None:
-        await message.channel.send(f'There is no lobby currently open. Type !openlobby to start one.')
+        await message.channel.send(f'There is no lobby open. Type !open to start one.')
         return
 
     # Check if the user is already in the lobby
@@ -135,8 +148,8 @@ async def handle_join_lobby_request(message):
     # Add the user to the lobby
     lobby.add_user(message.author)
 
-    # Notify that the join request is successful
-    await message.channel.send(f'{message.author} is ready to play.')
+    # Notify that the join request is successful by reacting with thumbs up
+    await thumbs_up_msg(message)
 
     # Check to see if number of users has reached critical mass
     await check_lobby_status(message)
@@ -156,7 +169,7 @@ async def handle_leave_lobby_request(message):
     
     # Remove the user, notify the channel, and check the lobby to see if the lobby is now empty
     lobby.remove_user(message.author)
-    await message.channel.send(f'{message.author} left the lobby.')
+    await thumbs_up_msg(message)
     await check_lobby_status(message)
 
 
@@ -166,7 +179,7 @@ async def handle_close_lobby_request(message):
 
     # Only the owner of the lobby can close it
     if lobby.is_owner(message.author):
-        await message.channel.send(f'{message.author} has closed the lobby.')
+        await thumbs_up_msg(message)
         lobby = None
 
 
@@ -177,7 +190,7 @@ async def print_lobby_status(message):
     # Check for open lobby
     if lobby is None:
         print(f'Could not print lobby status as no lobby was open.')
-        await message.channel.send(f'There is no lobby currently open. Type !open to start one.')
+        await message.channel.send(f'There is no lobby open. Type !open to start one.')
         return
 
     # Get player counts
@@ -208,7 +221,8 @@ async def check_lobby_status(message):
 
     user_count = lobby.user_count()
     if user_count is 0:
-        await message.channel.send(f'{message.author} was the only user readied up. Closing the lobby.')
+        await message.channel.send(f'The lobby is now empty. Closing.')
+        lobby = None
         return
     elif is_lobby_at_critical_mass():
         await notify_start_game(message)
@@ -216,7 +230,8 @@ async def check_lobby_status(message):
 
 # Notifies everyone that the lobby is ready to go
 async def notify_start_game(message):
-    await message.channel.send(f'Enough players have readied up for a game to begin! One person needs to start a WC3 lobby and post the game name here. This discord lobby has been closed.')
+    num_players = config['players_to_begin']
+    await message.channel.send(f'{num_players} players are ready for a game to begin! One person needs to start a WC3 lobby and post the game name here. This discord lobby has been closed.')
     await ping_readied_players(message)
 
 
@@ -229,6 +244,12 @@ async def ping_readied_players(message):
     # discord.User.mention is the attribute we need to ping a Discord User
     # https://discordpy.readthedocs.io/en/latest/api.html#discord.User.mention
     await message.channel.send(' '.join([user.mention for user in players]))
+
+
+# React to their message with a thumbs up
+async def thumbs_up_msg(message):
+    emoji = '\N{THUMBS UP SIGN}'
+    await message.add_reaction(emoji)
 
 
 client.run(TOKEN)
